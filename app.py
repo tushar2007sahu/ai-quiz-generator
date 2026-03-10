@@ -130,10 +130,19 @@ def create_quiz():
     if not data.get("title"):
         return jsonify({"error": "Title required"}), 400
 
-    quiz = Quiz(title=data["title"], teacher_id=session["teacher_id"])
-    db.session.add(quiz)
-    db.session.commit()
-    return jsonify({"quiz_id": quiz.id}), 201
+    # Using current_user.id is safer with @login_required
+    try:
+        quiz = Quiz(
+            title=data["title"], 
+            description=data.get("description", ""), # Added this so the test doesn't fail
+            teacher_id=current_user.id 
+        )
+        db.session.add(quiz)
+        db.session.commit()
+        return jsonify({"quiz_id": quiz.id, "message": "Quiz created"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/ai/generate-questions/<int:quiz_id>", methods=["POST"])
 @login_required
