@@ -34,8 +34,13 @@ app.secret_key = os.getenv("FLASK_SECRET", "dev-secret-replace-this")
 
 
 db.init_app(app)
+
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("✅ Database tables created successfully.")
+    except Exception as e:
+        print(f"❌ Error creating tables: {e}")
 
 limiter = Limiter(
     get_remote_address,
