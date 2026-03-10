@@ -34,6 +34,8 @@ app.secret_key = os.getenv("FLASK_SECRET", "dev-secret-replace-this")
 
 
 db.init_app(app)
+with app.app_context():
+    db.create_all()
 
 limiter = Limiter(
     get_remote_address,
