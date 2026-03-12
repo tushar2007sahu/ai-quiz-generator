@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_cors import CORS
 
 from models import db, Teacher, Quiz, Question, Session, Participant, Answer
 from ai_service import generate_questions, AIServiceError
@@ -16,6 +17,7 @@ from ai_service import generate_questions, AIServiceError
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app, supports_credentials=True)
 # --- THE HOTFIX START ---
 # 1. Get the URL from Render's environment
 database_url = os.getenv("DATABASE_URL")
