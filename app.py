@@ -313,6 +313,35 @@ def get_current_question(code):
         "time_left": time_left(session_obj)
     })
 
+@app.route("/session/<code|next", methods=["POST"])
+@login_required
+def next_question(code):
+    # Use session_code because that is what is in your model
+    session_record = Session.query.filter_by(session_code=code).first()
+    
+    if not session_record:
+        return jsonify({"error": "Session not found"}), 404
+
+    # If the quiz hasn't started yet, start it!
+    if not session_record.has_started:
+        session_record.has_started = True
+        session_record.current_question_index = 0
+    else:
+        # Move to the next question
+        session_record.current_question_index += 1
+    
+    # Update the timestamp so the JS timer knows when to start
+    from datetime import datetime
+    session_record.question_start_time = datetime.utcnow()
+    
+    db.session.commit()
+
+    return jsonify({
+        "message": "Advanced to next question",
+        "current_index": session_record.current_question_index,
+        "has_started": session_record.has_started
+    }), 200
+
 @app.route("/session/<code>/answer", methods=["POST"])
 def submit_answer(code):
 
