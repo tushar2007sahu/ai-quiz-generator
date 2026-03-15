@@ -178,30 +178,55 @@ def generate_ai_questions_route(quiz_id):
 
     try:
         raw_questions = generate_questions(topic, difficulty, count)
+        print("AI RAW RESPONSE:", raw_questions)  # DEBUG
     except AIServiceError as e:
         return jsonify({"error": str(e)}), 500
+
+    if not raw_questions or not isinstance(raw_questions, list):
+        return jsonify({"error": "AI returned invalid data"}), 500
 
     added_count = 0
 
     for q in raw_questions:
 
-        if Question.query.filter_by(quiz_id=quiz_id, question_text=q["question_text"]).first():
+        # Validate required fields
+        required_fields = [
+            "question_text",
+            "option_a",
+            "option_b",
+            "option_c",
+            "option_d",
+            "correct_option"
+        ]
+
+        if not all(field in q for field in required_fields):
+            print("Invalid question format:", q)
+            continue
+
+        # Skip duplicate questions
+        if Question.query.filter_by(
+            quiz_id=quiz_id,
+            question_text=q["question_text"]
+        ).first():
             continue
 
         options_list = [
-            (q["option_a"], "A"),
-            (q["option_b"], "B"),
-            (q["option_c"], "C"),
-            (q["option_d"], "D")
+            (q.get("option_a"), "A"),
+            (q.get("option_b"), "B"),
+            (q.get("option_c"), "C"),
+            (q.get("option_d"), "D")
         ]
 
+        correct_letter = q.get("correct_option")
         correct_text = None
+
         for text, letter in options_list:
-            if letter == q["correct_option"]:
+            if letter == correct_letter:
                 correct_text = text
                 break
 
         if not correct_text:
+            print("Correct option mismatch:", q)
             continue
 
         random.shuffle(options_list)
@@ -215,6 +240,7 @@ def generate_ai_questions_route(quiz_id):
                 break
 
         if not new_correct_letter:
+            print("Failed to remap correct option:", q)
             continue
 
         new_q = Question(
@@ -233,7 +259,9 @@ def generate_ai_questions_route(quiz_id):
 
     db.session.commit()
 
-    return jsonify({"message": f"Added {added_count} unique questions"}), 200
+    return jsonify({
+        "message": f"Added {added_count} unique questions"
+    }), 200
 
 # ---------------- LIVE SESSION ----------------
 
