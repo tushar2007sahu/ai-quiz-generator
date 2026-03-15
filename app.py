@@ -140,7 +140,6 @@ def create_quiz():
     try:
         quiz = Quiz(
             title=data["title"],
-            description=data.get("description", ""),
             teacher_id=session["teacher_id"]
         )
 
