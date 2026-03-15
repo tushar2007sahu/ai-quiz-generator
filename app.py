@@ -315,7 +315,7 @@ def get_current_question(code):
         "time_left": time_left(session_obj)
     })
 
-@app.route("/session/<code|next", methods=["POST"])
+@app.route("/session/<code>/next", methods=["POST"])
 @login_required
 def next_question(code):
     # Use session_code because that is what is in your model
