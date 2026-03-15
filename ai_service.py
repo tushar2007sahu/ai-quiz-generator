@@ -1,55 +1,114 @@
 import os
 import json
 from google import genai
-from google.genai import types  # Import types for stricter config
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize the new Gemini Client
+# Initialize Gemini client
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
 
 class AIServiceError(Exception):
     """Custom exception for AI generation failures"""
     pass
 
+
 def generate_questions(topic, difficulty, count):
     """
-    Generates quiz questions using the Gemini 2.0 Flash model.
-    Forces JSON output for easier parsing.
+    Generates quiz questions using Gemini Flash and returns a validated list of questions.
     """
+
     prompt = f"""
-    Generate {count} multiple-choice questions about '{topic}' at a '{difficulty}' difficulty level.
-    The response must be a JSON array of objects.
-    Each object must have these keys: 
-    "question_text", "option_a", "option_b", "option_c", "option_d", "correct_option", "explanation".
-    """
+You are a quiz generator.
+
+Generate {count} multiple choice questions about "{topic}" with {difficulty} difficulty.
+
+Return ONLY valid JSON.
+
+The JSON must be an ARRAY of objects.
+
+Each object must contain EXACTLY these fields:
+
+question_text
+option_a
+option_b
+option_c
+option_d
+correct_option
+explanation
+
+Rules:
+- correct_option must be A, B, C, or D
+- No markdown
+- No extra text
+- Only return the JSON array
+
+Example:
+
+[
+ {{
+  "question_text": "What does CPU stand for?",
+  "option_a": "Central Processing Unit",
+  "option_b": "Computer Personal Unit",
+  "option_c": "Central Performance Utility",
+  "option_d": "Control Processing Unit",
+  "correct_option": "A",
+  "explanation": "CPU stands for Central Processing Unit."
+ }}
+]
+"""
 
     try:
-        # Use 'gemini-2.0-flash' (Standard stable model in 2026)
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
-                response_mime_type='application/json' # Forces raw JSON output
-            )
+                response_mime_type="application/json"
+            ),
         )
-        
-        # In the new SDK, response.text contains the raw JSON string
+
         content = response.text.strip()
-        
-        # Load string into Python list/dictionary
+
         questions = json.loads(content)
-        
-        # Basic verification that we got a list
+
         if not isinstance(questions, list):
-            raise AIServiceError("AI returned an object instead of a list.")
-            
-        return questions
+            raise AIServiceError("AI response was not a list.")
+
+        validated_questions = []
+
+        required_fields = [
+            "question_text",
+            "option_a",
+            "option_b",
+            "option_c",
+            "option_d",
+            "correct_option",
+        ]
+
+        for q in questions:
+
+            if not isinstance(q, dict):
+                continue
+
+            if not all(field in q for field in required_fields):
+                continue
+
+            if q["correct_option"] not in ["A", "B", "C", "D"]:
+                continue
+
+            validated_questions.append(q)
+
+        if len(validated_questions) == 0:
+            raise AIServiceError("AI returned no valid questions.")
+
+        return validated_questions
 
     except json.JSONDecodeError as e:
-        print(f"JSON Parsing Error: {str(e)} | Content: {content}")
-        raise AIServiceError("AI generated invalid JSON format.")
+        print("JSON Parse Error:", e)
+        raise AIServiceError("AI returned invalid JSON.")
+
     except Exception as e:
-        print(f"AI Service Error: {str(e)}")
-        raise AIServiceError(f"Generation failed: {str(e)}")
+        print("AI Service Error:", e)
+        raise AIServiceError(str(e))
