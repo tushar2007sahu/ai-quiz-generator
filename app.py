@@ -126,24 +126,36 @@ def logout():
 # ---------------- QUIZ & AI ----------------
 
 @app.route("/quiz", methods=["POST"])
-@login_required
 def create_quiz():
+
+    # Check login
+    if "teacher_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.get_json() or {}
+
     if not data.get("title"):
         return jsonify({"error": "Title required"}), 400
 
-    # Using current_user.id is safer with @login_required
     try:
         quiz = Quiz(
-            title=data["title"], 
-            description=data.get("description", ""), # Added this so the test doesn't fail
-            teacher_id=current_user.id 
+            title=data["title"],
+            description=data.get("description", ""),
+            teacher_id=session["teacher_id"]
         )
+
         db.session.add(quiz)
         db.session.commit()
-        return jsonify({"quiz_id": quiz.id, "message": "Quiz created"}), 201
+
+        return jsonify({
+            "quiz_id": quiz.id,
+            "message": "Quiz created"
+        }), 201
+
     except Exception as e:
+
         db.session.rollback()
+
         return jsonify({"error": str(e)}), 500
 
 @app.route("/ai/generate-questions/<int:quiz_id>", methods=["POST"])
