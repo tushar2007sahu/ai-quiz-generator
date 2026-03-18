@@ -286,20 +286,29 @@ def create_session(quiz_id):
 def begin_session(code):
 
     session_obj = Session.query.filter_by(session_code=code, is_active=True).first()
-    if not session_obj:
-        return jsonify({"error": "Not found"}), 404
 
-    if session_obj.quiz.teacher_id != session["teacher_id"]:
+    if not session_obj:
+        return jsonify({"error": "Session not found"}), 404
+
+    # FIX STARTS HERE
+    quiz = Quiz.query.get(session_obj.quiz_id)
+
+    if not quiz:
+        return jsonify({"error": "Quiz not found"}), 404
+
+    if quiz.teacher_id != session["teacher_id"]:
         return jsonify({"error": "Unauthorized"}), 403
+    # FIX ENDS HERE
 
     if Question.query.filter_by(quiz_id=session_obj.quiz_id).count() == 0:
         return jsonify({"error": "No questions"}), 400
 
     session_obj.has_started = True
     session_obj.question_start_time = datetime.now(timezone.utc)
+
     db.session.commit()
 
-    return jsonify({"message": "Quiz started"})
+    return jsonify({"message": "Quiz started"}), 200
 
 @app.route("/session/join", methods=["POST"])
 def join():
